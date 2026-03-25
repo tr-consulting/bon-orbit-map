@@ -1,0 +1,55 @@
+name: Deploy Pages (Bon Orbit map)
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build dist
+        env:
+          GMAPS_KEY: ${{ secrets.GMAPS_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Ersätt $GMAPS_KEY i templaten
+          envsubst < index.template.html > dist/index.html
+          # Kopiera loggan (och ev. fler assets)
+          cp sdab_small.png dist/ || true
+          cp SDAB_Logo_RGB_Horizontal.png dist/ || true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
